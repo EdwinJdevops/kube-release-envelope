@@ -17,8 +17,8 @@ func fixture(t *testing.T) (Envelope, ed25519.PublicKey, ed25519.PrivateKey, tim
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
 	e := Envelope{
 		Version: VersionV0Alpha1, DeploymentID: "deploy-01",
-		Identity: Identity{Issuer: "https://token.actions.githubusercontent.com", Audience: "release-envelope", RepositoryID: "123456", WorkflowRef: "acme/app/.github/workflows/deploy.yml@refs/heads/main"},
-		Target: Target{ClusterID: "cluster-prod-1", Namespace: "payments"},
+		Identity:       Identity{Issuer: "https://token.actions.githubusercontent.com", Audience: "release-envelope", RepositoryID: "123456", WorkflowRef: "acme/app/.github/workflows/deploy.yml@refs/heads/main"},
+		Target:         Target{ClusterID: "cluster-prod-1", Namespace: "payments"},
 		SourceRevision: "0123456789abcdef", ManifestSetDigest: ManifestSetDigest([]byte("canonical manifests")),
 		NotBefore: now.Add(-time.Minute), ExpiresAt: now.Add(5 * time.Minute),
 		Operations: []Operation{
