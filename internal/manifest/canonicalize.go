@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	ErrDuplicateField    = errors.New("duplicate JSON field")
-	ErrDuplicateObject   = errors.New("duplicate Kubernetes object identity")
-	ErrGeneratedName     = errors.New("generateName is not supported")
-	ErrMissingIdentity   = errors.New("Kubernetes object identity is incomplete")
-	ErrNonJSONObject     = errors.New("manifest must be a JSON object")
-	ErrNoManifests       = errors.New("manifest set is empty")
+	ErrDuplicateField  = errors.New("duplicate JSON field")
+	ErrDuplicateObject = errors.New("duplicate Kubernetes object identity")
+	ErrGeneratedName   = errors.New("generateName is not supported")
+	ErrMissingIdentity = errors.New("Kubernetes object identity is incomplete")
+	ErrNonJSONObject   = errors.New("manifest must be a JSON object")
+	ErrNoManifests     = errors.New("manifest set is empty")
 )
 
 type object struct {
