@@ -16,6 +16,10 @@ Duplicate operations are invalid. Digests use lowercase `sha256:<64 hex>` form.
 The source revision is an opaque non-empty identifier because this protocol must
 not hard-code Git's current object format.
 
+The manifest-set digest binds the pre-admission intent returned by
+`manifest.CanonicalizeSet`. It does not claim that Kubernetes admitted, stored,
+or made healthy those exact bytes. Those facts require separate evidence.
+
 ## Validation order
 
 1. Decode with unknown fields rejected.
@@ -30,7 +34,8 @@ and rotation belong to the verifier's trust configuration.
 
 ## Explicitly unresolved
 
-- Kubernetes object canonicalization and defaulted fields.
+- YAML-to-JSON conversion semantics.
+- Post-admission/defaulted object capture.
 - GenerateName and controller-created child resources.
 - Subresources and CRDs.
 - Safe binding between an envelope and ephemeral ServiceAccount credentials.
