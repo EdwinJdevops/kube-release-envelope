@@ -43,14 +43,14 @@ var podSpecPaths = map[kindKey][]string{
 var imageFreeKinds = map[kindKey]struct{}{
 	{apiVersion: "v1", kind: "ConfigMap"}: {}, {apiVersion: "v1", kind: "Secret"}: {},
 	{apiVersion: "v1", kind: "Service"}: {}, {apiVersion: "v1", kind: "ServiceAccount"}: {},
-	{apiVersion: "v1", kind: "PersistentVolumeClaim"}: {},
-	{apiVersion: "networking.k8s.io/v1", kind: "Ingress"}: {},
-	{apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy"}: {},
-	{apiVersion: "policy/v1", kind: "PodDisruptionBudget"}: {},
-	{apiVersion: "autoscaling/v2", kind: "HorizontalPodAutoscaler"}: {},
-	{apiVersion: "rbac.authorization.k8s.io/v1", kind: "Role"}: {},
-	{apiVersion: "rbac.authorization.k8s.io/v1", kind: "RoleBinding"}: {},
-	{apiVersion: "rbac.authorization.k8s.io/v1", kind: "ClusterRole"}: {},
+	{apiVersion: "v1", kind: "PersistentVolumeClaim"}:                        {},
+	{apiVersion: "networking.k8s.io/v1", kind: "Ingress"}:                    {},
+	{apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy"}:              {},
+	{apiVersion: "policy/v1", kind: "PodDisruptionBudget"}:                   {},
+	{apiVersion: "autoscaling/v2", kind: "HorizontalPodAutoscaler"}:          {},
+	{apiVersion: "rbac.authorization.k8s.io/v1", kind: "Role"}:               {},
+	{apiVersion: "rbac.authorization.k8s.io/v1", kind: "RoleBinding"}:        {},
+	{apiVersion: "rbac.authorization.k8s.io/v1", kind: "ClusterRole"}:        {},
 	{apiVersion: "rbac.authorization.k8s.io/v1", kind: "ClusterRoleBinding"}: {},
 }
 
