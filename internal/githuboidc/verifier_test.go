@@ -255,6 +255,7 @@ func TestVerifyRejectsInvalidTimes(t *testing.T) {
 		{"not yet valid", "nbf", now.Add(time.Minute).Unix()},
 		{"future issued-at", "iat", now.Add(time.Minute).Unix()},
 		{"too old", "iat", now.Add(-10 * time.Minute).Unix()},
+		{"excessive lifetime", "exp", now.Add(10 * time.Minute).Unix()},
 		{"fractional expiry", "exp", 1.5},
 	}
 	for _, test := range tests {

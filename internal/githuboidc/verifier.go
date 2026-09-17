@@ -281,7 +281,7 @@ func claimsPrincipal(claims map[string]json.RawMessage, policy Policy, now time.
 	if err != nil {
 		return Claims{}, err
 	}
-	if !exp.After(iat) || !exp.After(nbf) || now.Add(policy.ClockSkew).Before(nbf) || !now.Add(-policy.ClockSkew).Before(exp) || iat.After(now.Add(policy.ClockSkew)) || now.Sub(iat) > policy.MaxTokenAge+policy.ClockSkew {
+	if !exp.After(iat) || !exp.After(nbf) || exp.Sub(iat) > policy.MaxTokenAge || now.Add(policy.ClockSkew).Before(nbf) || !now.Add(-policy.ClockSkew).Before(exp) || iat.After(now.Add(policy.ClockSkew)) || now.Sub(iat) > policy.MaxTokenAge+policy.ClockSkew {
 		return Claims{}, ErrInvalidTime
 	}
 	p.IssuedAt, p.NotBefore, p.ExpiresAt = iat, nbf, exp

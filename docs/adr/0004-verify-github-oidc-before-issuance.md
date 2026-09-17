@@ -43,8 +43,8 @@ The verifier:
 5. resolves `kid` through verifier-owned key state;
 6. rejects token-supplied key material and RSA keys below 2048 bits;
 7. verifies the RSASSA-PKCS1-v1_5 SHA-256 signature;
-8. validates `iat`, `nbf`, and `exp` against explicit maximum-age and clock-skew
-   policy;
+8. validates `iat`, `nbf`, and `exp` against explicit maximum token age,
+   maximum token lifetime, and clock-skew policy;
 9. matches an exact verifier-owned audience and subject;
 10. independently matches numeric repository and owner IDs;
 11. matches the source SHA, ref, workflow ref, immutable workflow SHA, event,
