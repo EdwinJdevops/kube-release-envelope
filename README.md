@@ -9,6 +9,11 @@ Pre-alpha. The repository currently defines and tests the signed envelope
 primitive. It is not a production authorization service and makes no claim of
 preventing all deployment or supply-chain attacks.
 
+The current verifier additionally binds immutable container image references for
+the built-in workload kinds listed in ADR 0003. Unknown kinds fail closed. This
+is pre-admission intent enforcement; it does not yet prove which image an
+admission webhook stored or which image a node ran.
+
 ## Problem boundary
 
 Kubernetes RBAC authorizes API requests. It does not by itself bind a reviewed

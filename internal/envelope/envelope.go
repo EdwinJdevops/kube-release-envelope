@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/EdwinJdevops/kube-release-envelope/internal/artifact"
 )
 
 const VersionV0Alpha1 = "release-envelope.dev/v0alpha1"
@@ -23,6 +25,7 @@ type Envelope struct {
 	Target            Target      `json:"target"`
 	SourceRevision    string      `json:"sourceRevision"`
 	ManifestSetDigest string      `json:"manifestSetDigest"`
+	Artifacts         []string    `json:"artifacts"`
 	NotBefore         time.Time   `json:"notBefore"`
 	ExpiresAt         time.Time   `json:"expiresAt"`
 	Operations        []Operation `json:"operations"`
@@ -72,6 +75,19 @@ func (e Envelope) Validate() error {
 	if !validSHA256(e.ManifestSetDigest) {
 		problems = append(problems, "manifest-set digest must be lowercase sha256")
 	}
+	if e.Artifacts == nil {
+		problems = append(problems, "artifacts must be an array")
+	}
+	seenArtifacts := make(map[string]struct{}, len(e.Artifacts))
+	for i, reference := range e.Artifacts {
+		if err := artifact.ValidatePinnedReference(reference); err != nil {
+			problems = append(problems, fmt.Sprintf("artifact %d: %v", i, err))
+		}
+		if _, ok := seenArtifacts[reference]; ok {
+			problems = append(problems, fmt.Sprintf("artifact %d: duplicate artifact", i))
+		}
+		seenArtifacts[reference] = struct{}{}
+	}
 	if e.NotBefore.IsZero() || e.ExpiresAt.IsZero() || !e.ExpiresAt.After(e.NotBefore) {
 		problems = append(problems, "validity window must be non-zero and increasing")
 	}
@@ -117,6 +133,8 @@ func (e Envelope) CanonicalBytes() ([]byte, error) {
 	c := e
 	c.NotBefore = c.NotBefore.UTC().Truncate(0)
 	c.ExpiresAt = c.ExpiresAt.UTC().Truncate(0)
+	c.Artifacts = append([]string(nil), e.Artifacts...)
+	sort.Strings(c.Artifacts)
 	c.Operations = append([]Operation(nil), e.Operations...)
 	sort.Slice(c.Operations, func(i, j int) bool { return operationKey(c.Operations[i]) < operationKey(c.Operations[j]) })
 	return json.Marshal(c)
@@ -181,6 +199,22 @@ func (e Envelope) Authorizes(request Operation) bool {
 
 func (e Envelope) MatchesManifestSet(canonicalManifests []byte) bool {
 	return e.ManifestSetDigest == ManifestSetDigest(canonicalManifests)
+}
+
+func (e Envelope) MatchesArtifacts(references []string) bool {
+	if len(e.Artifacts) != len(references) {
+		return false
+	}
+	want := append([]string(nil), e.Artifacts...)
+	got := append([]string(nil), references...)
+	sort.Strings(want)
+	sort.Strings(got)
+	for i := range want {
+		if want[i] != got[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func ManifestSetDigest(canonicalManifests []byte) string {

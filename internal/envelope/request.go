@@ -4,12 +4,16 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"time"
+
+	"github.com/EdwinJdevops/kube-release-envelope/internal/artifact"
 )
 
 var (
-	ErrUnknownSigningKey = errors.New("unknown signing key")
-	ErrManifestMismatch  = errors.New("manifest-set digest does not match envelope")
-	ErrOperationDenied   = errors.New("operation is not authorized by envelope")
+	ErrUnknownSigningKey  = errors.New("unknown signing key")
+	ErrManifestMismatch   = errors.New("manifest-set digest does not match envelope")
+	ErrArtifactInspection = errors.New("manifest artifact inspection failed")
+	ErrArtifactMismatch   = errors.New("manifest artifacts do not match envelope")
+	ErrOperationDenied    = errors.New("operation is not authorized by envelope")
 )
 
 // KeyResolver is verifier-owned trust configuration. Implementations must not
@@ -41,6 +45,13 @@ func VerifyRequest(
 	}
 	if !signed.Envelope.MatchesManifestSet(canonicalManifests) {
 		return ErrManifestMismatch
+	}
+	references, err := artifact.ExtractPinnedReferences(canonicalManifests)
+	if err != nil {
+		return errors.Join(ErrArtifactInspection, err)
+	}
+	if !signed.Envelope.MatchesArtifacts(references) {
+		return ErrArtifactMismatch
 	}
 	if !signed.Envelope.Authorizes(operation) {
 		return ErrOperationDenied

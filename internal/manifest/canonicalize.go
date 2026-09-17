@@ -12,6 +12,7 @@ import (
 )
 
 var (
+	ErrNonCanonicalSet = errors.New("manifest set is not canonical")
 	ErrDuplicateField  = errors.New("duplicate JSON field")
 	ErrDuplicateObject = errors.New("duplicate Kubernetes object identity")
 	ErrGeneratedName   = errors.New("generateName is not supported")
@@ -72,6 +73,37 @@ func CanonicalizeSet(documents ...[]byte) ([]byte, error) {
 	}
 	output.WriteByte(']')
 	return output.Bytes(), nil
+}
+
+// ValidateCanonicalSet rejects bytes that are merely valid JSON but are not the
+// exact output of CanonicalizeSet. Verifiers use this before interpreting
+// security-relevant fields so the signed digest has one byte representation.
+func ValidateCanonicalSet(canonical []byte) error {
+	var documents []json.RawMessage
+	decoder := json.NewDecoder(bytes.NewReader(canonical))
+	if err := decoder.Decode(&documents); err != nil {
+		return fmt.Errorf("%w: %v", ErrNonCanonicalSet, err)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return fmt.Errorf("%w: multiple JSON values", ErrNonCanonicalSet)
+		}
+		return fmt.Errorf("%w: %v", ErrNonCanonicalSet, err)
+	}
+
+	inputs := make([][]byte, len(documents))
+	for i := range documents {
+		inputs[i] = documents[i]
+	}
+	reencoded, err := CanonicalizeSet(inputs...)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrNonCanonicalSet, err)
+	}
+	if !bytes.Equal(canonical, reencoded) {
+		return ErrNonCanonicalSet
+	}
+	return nil
 }
 
 func decodeStrict(document []byte) (any, error) {
