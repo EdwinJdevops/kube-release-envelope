@@ -54,7 +54,7 @@ func fixture(t *testing.T) (map[string]any, Policy, time.Time, StaticKeyring) {
 		Audience: "release-envelope", Subject: subject,
 		RepositoryID: "1369974887", RepositoryOwnerID: "262093906",
 		SourceSHA: workflowSHA, Ref: "refs/heads/main",
-		Workflow: WorkflowIdentity{Ref: workflowRef, SHA: workflowSHA},
+		Workflow:            WorkflowIdentity{Ref: workflowRef, SHA: workflowSHA},
 		ExpectedEnvironment: environment("production"), EventName: "workflow_dispatch",
 		RunnerEnvironment: "github-hosted", MaxTokenAge: 5 * time.Minute, ClockSkew: 10 * time.Second,
 	}

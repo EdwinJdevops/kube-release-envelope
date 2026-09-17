@@ -20,7 +20,7 @@ import (
 const Issuer = "https://token.actions.githubusercontent.com"
 
 const (
-	maximumConfiguredTokenAge = time.Hour
+	maximumConfiguredTokenAge  = time.Hour
 	maximumConfiguredClockSkew = 5 * time.Minute
 )
 
@@ -50,19 +50,19 @@ type WorkflowIdentity struct {
 // are invalid except ExpectedEnvironment and ReusableWorkflow, whose nil values
 // require the corresponding claims to be absent.
 type Policy struct {
-	Audience             string
-	Subject              string
-	RepositoryID         string
-	RepositoryOwnerID    string
-	SourceSHA            string
-	Ref                  string
-	Workflow             WorkflowIdentity
-	ExpectedEnvironment  *string
-	ReusableWorkflow     *WorkflowIdentity
-	EventName            string
-	RunnerEnvironment    string
-	MaxTokenAge          time.Duration
-	ClockSkew            time.Duration
+	Audience            string
+	Subject             string
+	RepositoryID        string
+	RepositoryOwnerID   string
+	SourceSHA           string
+	Ref                 string
+	Workflow            WorkflowIdentity
+	ExpectedEnvironment *string
+	ReusableWorkflow    *WorkflowIdentity
+	EventName           string
+	RunnerEnvironment   string
+	MaxTokenAge         time.Duration
+	ClockSkew           time.Duration
 }
 
 // Claims is a copy of the verified GitHub identity and execution context.
@@ -84,8 +84,8 @@ type Claims struct {
 	RunnerEnvironment string
 	ActorID           string
 	RunID             string
-	RunAttempt         string
-	JTI                string
+	RunAttempt        string
+	JTI               string
 	IssuedAt          time.Time
 	NotBefore         time.Time
 	ExpiresAt         time.Time

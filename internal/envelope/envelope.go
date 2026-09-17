@@ -87,7 +87,7 @@ func (e Envelope) Validate() error {
 		"ref": e.Identity.Ref, "event name": e.Identity.EventName,
 		"runner environment": e.Identity.RunnerEnvironment, "run ID": e.Identity.RunID,
 		"run attempt": e.Identity.RunAttempt, "token ID": e.Identity.TokenID,
-		"cluster ID": e.Target.ClusterID,
+		"cluster ID":       e.Target.ClusterID,
 		"target namespace": e.Target.Namespace, "source revision": e.SourceRevision,
 	} {
 		if strings.TrimSpace(value) == "" {
@@ -184,10 +184,10 @@ func sign(e Envelope, keyID string, privateKey ed25519.PrivateKey) (SignedEnvelo
 
 var (
 	ErrUnverifiedGitHubIdentity = errors.New("GitHub OIDC identity is not verified")
-	ErrSourceRevisionMismatch  = errors.New("source revision does not match GitHub OIDC token")
-	ErrIdentityWindowMismatch  = errors.New("envelope validity exceeds GitHub OIDC token validity")
-	ErrTokenConsumerRequired   = errors.New("GitHub OIDC token consumer is required")
-	ErrTokenReplay             = errors.New("GitHub OIDC token has already been consumed")
+	ErrSourceRevisionMismatch   = errors.New("source revision does not match GitHub OIDC token")
+	ErrIdentityWindowMismatch   = errors.New("envelope validity exceeds GitHub OIDC token validity")
+	ErrTokenConsumerRequired    = errors.New("GitHub OIDC token consumer is required")
+	ErrTokenReplay              = errors.New("GitHub OIDC token has already been consumed")
 )
 
 // TokenConsumer atomically marks one issuer/JTI pair as consumed through its
