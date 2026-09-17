@@ -16,9 +16,11 @@ admission webhook stored or which image a node ran.
 
 GitHub Actions issuance now requires an RS256-verified OIDC principal matched to
 exact repository/owner IDs, workflow commit, source commit/ref, subject,
-environment, event, runner type, and run identity. The pure core deliberately
-does not fetch GitHub JWKS keys or provide durable replay storage yet; those are
-the next adapter boundaries, not completed production capabilities.
+environment, event, runner type, and run identity. A separate adapter retrieves
+GitHub's fixed JWKS endpoint, enforces bounded key-set parsing and HTTP
+freshness, refreshes once for key rotation, and fails closed after expiry. The
+prototype still does not provide durable replay storage or deployment
+credentials; these remain separate trust boundaries.
 
 ## Problem boundary
 
@@ -43,6 +45,7 @@ and a general policy language are explicitly out of scope.
 
 - `internal/envelope`: canonicalization, validation, signing, verification.
 - `internal/githuboidc`: pure JWT signature and exact-claim verification.
+- `internal/githubjwks`: fixed-endpoint JWKS retrieval, rotation, and caching.
 - `docs/spec`: protocol and invariant definitions.
 - `docs/adr`: architectural decisions and rejected alternatives.
 - `docs/research`: evidence, uncertainties, and validation gates.
@@ -51,3 +54,6 @@ and a general policy language are explicitly out of scope.
 
 Run `make verify` with Go 1.27 or use the GitHub Actions workflow. The core has no
 third-party dependencies.
+
+`make test-live-jwks` performs the optional network check against GitHub's fixed
+JWKS endpoint. It is deliberately separate from the deterministic merge gate.

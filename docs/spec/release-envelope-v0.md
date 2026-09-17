@@ -36,20 +36,23 @@ canonicalized lexicographically. Duplicate artifact entries are invalid.
 ## Validation order
 
 1. Decode with unknown fields rejected.
-2. Before issuance, verify the GitHub JWT signature using a verifier-owned key,
+2. Resolve GitHub signing keys through the fixed JWKS endpoint. Cached keys must
+   be within their HTTP freshness lifetime; an unknown key ID permits one
+   bounded rotation refresh.
+3. Before issuance, verify the GitHub JWT signature using the resolved key,
    validate its time window, and match exact identity/execution claims.
-3. Atomically consume the GitHub issuer/token-ID pair to reject replay.
-4. Replace all envelope identity fields with verified claims and constrain the
+4. Atomically consume the GitHub issuer/token-ID pair to reject replay.
+5. Replace all envelope identity fields with verified claims and constrain the
    envelope source revision and validity window to those claims.
-5. Validate protocol and all required semantic fields.
-6. Canonicalize and reject duplicates.
-7. Verify the envelope signature against a trusted key selected outside the
+6. Validate protocol and all required semantic fields.
+7. Canonicalize and reject duplicates.
+8. Verify the envelope signature against a trusted key selected outside the
    envelope.
-8. Check the envelope validity window against verifier time.
-9. Compare the observed manifest digest to the envelope.
-10. Extract immutable artifacts from the canonical manifest set and compare the
+9. Check the envelope validity window against verifier time.
+10. Compare the observed manifest digest to the envelope.
+11. Extract immutable artifacts from the canonical manifest set and compare the
    exact set to the signed artifact claims.
-11. Compare the requested mutation to the envelope.
+12. Compare the requested mutation to the envelope.
 
 An envelope carrying a public key does not make that key trusted. Key selection
 and rotation belong to the verifier's trust configuration.
@@ -63,7 +66,6 @@ and rotation belong to the verifier's trust configuration.
 - Image-bearing custom resources and built-in workload kinds not listed in ADR
   0003.
 - Safe binding between an envelope and ephemeral ServiceAccount credentials.
-- GitHub JWKS retrieval, rotation, cache freshness, and outage semantics.
 - Durable atomic replay-consumer storage.
 - Mutation capture when webhooks fail or audit delivery is delayed.
 - Runtime health semantics and observation completeness.
