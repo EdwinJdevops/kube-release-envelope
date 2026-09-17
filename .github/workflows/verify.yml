@@ -20,7 +20,9 @@ jobs:
           check-latest: true
           cache: false
       - name: Format check
-        run: test -z "$(gofmt -l .)"
+        run: |
+          gofmt -d .
+          test -z "$(gofmt -l .)"
       - name: Test
         run: go test -race -coverprofile=coverage.out ./...
       - name: Vet

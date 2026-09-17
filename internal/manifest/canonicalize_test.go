@@ -82,3 +82,29 @@ func TestCanonicalizeSetRejectsNestedDuplicateField(t *testing.T) {
 		t.Fatalf("got %v, want %v", err, ErrDuplicateField)
 	}
 }
+
+func TestValidateCanonicalSet(t *testing.T) {
+	canonical, err := CanonicalizeSet(
+		[]byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"api","namespace":"payments"}}`),
+		[]byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"api","namespace":"payments"}}`),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateCanonicalSet(canonical); err != nil {
+		t.Fatalf("ValidateCanonicalSet() error = %v", err)
+	}
+
+	for name, input := range map[string][]byte{
+		"whitespace":       append([]byte(" "), canonical...),
+		"object order":     []byte(`[{"apiVersion":"v1","kind":"Service","metadata":{"name":"api","namespace":"payments"}},{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"api","namespace":"payments"}}]`),
+		"not an array":     []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"api"}}`),
+		"trailing content": append(append([]byte(nil), canonical...), []byte(` true`)...),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := ValidateCanonicalSet(input); !errors.Is(err, ErrNonCanonicalSet) {
+				t.Fatalf("ValidateCanonicalSet() error = %v, want ErrNonCanonicalSet", err)
+			}
+		})
+	}
+}

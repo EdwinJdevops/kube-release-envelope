@@ -6,7 +6,20 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/EdwinJdevops/kube-release-envelope/internal/manifest"
 )
+
+const fixtureImage = "registry.example.com/payments/api@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+func fixtureManifests(t *testing.T, image string) []byte {
+	t.Helper()
+	canonical, err := manifest.CanonicalizeSet([]byte(`{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"api","namespace":"payments"},"spec":{"template":{"spec":{"containers":[{"name":"api","image":"` + image + `"}]}}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return canonical
+}
 
 func fixture(t *testing.T) (Envelope, ed25519.PublicKey, ed25519.PrivateKey, time.Time) {
 	t.Helper()
@@ -15,11 +28,13 @@ func fixture(t *testing.T) (Envelope, ed25519.PublicKey, ed25519.PrivateKey, tim
 		t.Fatal(err)
 	}
 	now := time.Date(2026, 9, 12, 12, 0, 0, 0, time.UTC)
+	canonicalManifests := fixtureManifests(t, fixtureImage)
 	e := Envelope{
 		Version: VersionV0Alpha1, DeploymentID: "deploy-01",
 		Identity:       Identity{Issuer: "https://token.actions.githubusercontent.com", Audience: "release-envelope", RepositoryID: "123456", WorkflowRef: "acme/app/.github/workflows/deploy.yml@refs/heads/main"},
 		Target:         Target{ClusterID: "cluster-prod-1", Namespace: "payments"},
-		SourceRevision: "0123456789abcdef", ManifestSetDigest: ManifestSetDigest([]byte("canonical manifests")),
+		SourceRevision: "0123456789abcdef", ManifestSetDigest: ManifestSetDigest(canonicalManifests),
+		Artifacts: []string{fixtureImage},
 		NotBefore: now.Add(-time.Minute), ExpiresAt: now.Add(5 * time.Minute),
 		Operations: []Operation{
 			{Verb: "update", APIGroup: "apps", Resource: "deployments", Namespace: "payments", Name: "api"},
@@ -49,6 +64,29 @@ func TestSignVerifyAndCanonicalOperationOrder(t *testing.T) {
 	}
 	if err := Verify(signed, pub, now); err != nil {
 		t.Fatalf("verify: %v", err)
+	}
+}
+
+func TestCanonicalArtifactOrderAndValidation(t *testing.T) {
+	e, _, _, _ := fixture(t)
+	second := "registry.example.com/payments/sidecar@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	e.Artifacts = []string{fixtureImage, second}
+	a, err := e.CanonicalBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.Artifacts[0], e.Artifacts[1] = e.Artifacts[1], e.Artifacts[0]
+	b, err := e.CanonicalBytes()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(a) != string(b) {
+		t.Fatal("artifact order changed canonical payload")
+	}
+
+	e.Artifacts = append(e.Artifacts, e.Artifacts[0])
+	if err := e.Validate(); err == nil || !strings.Contains(err.Error(), "duplicate artifact") {
+		t.Fatalf("Validate() error = %v", err)
 	}
 }
 
@@ -92,8 +130,11 @@ func TestExactAuthorizationAndManifestBinding(t *testing.T) {
 	if e.Authorizes(extraResource) {
 		t.Fatal("unlisted resource must not be authorized")
 	}
-	if !e.MatchesManifestSet([]byte("canonical manifests")) || e.MatchesManifestSet([]byte("changed manifests")) {
+	if !e.MatchesManifestSet(fixtureManifests(t, fixtureImage)) || e.MatchesManifestSet([]byte("changed manifests")) {
 		t.Fatal("manifest-set binding failed")
+	}
+	if !e.MatchesArtifacts([]string{fixtureImage}) || e.MatchesArtifacts([]string{"registry.example.com/payments/api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}) {
+		t.Fatal("artifact binding failed")
 	}
 }
 
