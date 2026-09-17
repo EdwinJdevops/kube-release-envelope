@@ -188,12 +188,14 @@ var (
 	ErrIdentityWindowMismatch   = errors.New("envelope validity exceeds GitHub OIDC token validity")
 	ErrTokenConsumerRequired    = errors.New("GitHub OIDC token consumer is required")
 	ErrTokenReplay              = errors.New("GitHub OIDC token has already been consumed")
+	ErrTokenConsumption         = errors.New("GitHub OIDC token consumption failed")
 )
 
 // TokenConsumer atomically marks one issuer/JTI pair as consumed through its
-// expiry. Implementations must return false for a replay.
+// expiry. Implementations return consumed=false without an error for a replay;
+// storage failures must return an error and fail issuance closed.
 type TokenConsumer interface {
-	Consume(issuer, jti string, expiresAt time.Time) bool
+	Consume(issuer, jti string, expiresAt time.Time) (consumed bool, err error)
 }
 
 // IssueGitHub binds an envelope to an opaque, verified GitHub OIDC principal.
@@ -231,7 +233,11 @@ func IssueGitHub(e Envelope, principal githuboidc.Principal, consumed TokenConsu
 	if len(privateKey) != ed25519.PrivateKeySize {
 		return SignedEnvelope{}, errors.New("invalid Ed25519 private key")
 	}
-	if !consumed.Consume(claims.Issuer, claims.JTI, claims.ExpiresAt) {
+	wasConsumed, err := consumed.Consume(claims.Issuer, claims.JTI, claims.ExpiresAt)
+	if err != nil {
+		return SignedEnvelope{}, errors.Join(ErrTokenConsumption, err)
+	}
+	if !wasConsumed {
 		return SignedEnvelope{}, ErrTokenReplay
 	}
 	return SignedEnvelope{Envelope: e, KeyID: keyID, Signature: hex.EncodeToString(ed25519.Sign(privateKey, payload))}, nil

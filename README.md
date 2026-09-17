@@ -19,8 +19,9 @@ exact repository/owner IDs, workflow commit, source commit/ref, subject,
 environment, event, runner type, and run identity. A separate adapter retrieves
 GitHub's fixed JWKS endpoint, enforces bounded key-set parsing and HTTP
 freshness, refreshes once for key rotation, and fails closed after expiry. The
-prototype still does not provide durable replay storage or deployment
-credentials; these remain separate trust boundaries.
+prototype now includes a crash-durable replay store for one node backed by a
+local filesystem. It does not claim distributed replay protection and still
+does not issue deployment credentials; those remain separate trust boundaries.
 
 ## Problem boundary
 
@@ -46,6 +47,7 @@ and a general policy language are explicitly out of scope.
 - `internal/envelope`: canonicalization, validation, signing, verification.
 - `internal/githuboidc`: pure JWT signature and exact-claim verification.
 - `internal/githubjwks`: fixed-endpoint JWKS retrieval, rotation, and caching.
+- `internal/replaystore`: single-node, crash-durable OIDC replay markers.
 - `docs/spec`: protocol and invariant definitions.
 - `docs/adr`: architectural decisions and rejected alternatives.
 - `docs/research`: evidence, uncertainties, and validation gates.

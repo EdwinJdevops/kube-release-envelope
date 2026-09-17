@@ -20,14 +20,20 @@ type memoryTokenConsumer struct {
 	calls int
 }
 
-func (c *memoryTokenConsumer) Consume(issuer, jti string, _ time.Time) bool {
+func (c *memoryTokenConsumer) Consume(issuer, jti string, _ time.Time) (bool, error) {
 	c.calls++
 	key := issuer + "\x00" + jti
 	if _, exists := c.used[key]; exists {
-		return false
+		return false, nil
 	}
 	c.used[key] = struct{}{}
-	return true
+	return true, nil
+}
+
+type failingTokenConsumer struct{ err error }
+
+func (c failingTokenConsumer) Consume(string, string, time.Time) (bool, error) {
+	return false, c.err
 }
 
 func verifiedGitHubPrincipal(t *testing.T, now time.Time) githuboidc.Principal {
@@ -132,5 +138,19 @@ func TestIssueGitHubRejectsBeforeTokenConsumption(t *testing.T) {
 				t.Fatalf("token consumed before validation failure; calls = %d", consumer.calls)
 			}
 		})
+	}
+}
+
+func TestIssueGitHubDistinguishesReplayFromStorageFailure(t *testing.T) {
+	e, _, privateKey, now := fixture(t)
+	e.SourceRevision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	e.NotBefore = now
+	e.ExpiresAt = now.Add(3 * time.Minute)
+	principal := verifiedGitHubPrincipal(t, now)
+	storageFailure := errors.New("disk unavailable")
+
+	_, err := IssueGitHub(e, principal, failingTokenConsumer{err: storageFailure}, "envelope-key", privateKey)
+	if !errors.Is(err, ErrTokenConsumption) || !errors.Is(err, storageFailure) || errors.Is(err, ErrTokenReplay) {
+		t.Fatalf("IssueGitHub() error = %v", err)
 	}
 }
