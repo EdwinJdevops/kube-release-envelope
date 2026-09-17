@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/EdwinJdevops/kube-release-envelope/internal/artifact"
+	"github.com/EdwinJdevops/kube-release-envelope/internal/githuboidc"
 )
 
 const VersionV0Alpha1 = "release-envelope.dev/v0alpha1"
@@ -32,10 +34,24 @@ type Envelope struct {
 }
 
 type Identity struct {
-	Issuer       string `json:"issuer"`
-	Audience     string `json:"audience"`
-	RepositoryID string `json:"repositoryId"`
-	WorkflowRef  string `json:"workflowRef"`
+	Issuer            string `json:"issuer"`
+	Audience          string `json:"audience"`
+	Subject           string `json:"subject"`
+	Repository        string `json:"repository"`
+	RepositoryID      string `json:"repositoryId"`
+	RepositoryOwnerID string `json:"repositoryOwnerId"`
+	ActorID           string `json:"actorId"`
+	WorkflowRef       string `json:"workflowRef"`
+	WorkflowSHA       string `json:"workflowSha"`
+	JobWorkflowRef    string `json:"jobWorkflowRef"`
+	JobWorkflowSHA    string `json:"jobWorkflowSha"`
+	Ref               string `json:"ref"`
+	Environment       string `json:"environment"`
+	EventName         string `json:"eventName"`
+	RunnerEnvironment string `json:"runnerEnvironment"`
+	RunID             string `json:"runId"`
+	RunAttempt        string `json:"runAttempt"`
+	TokenID           string `json:"tokenId"`
 }
 
 type Target struct {
@@ -64,13 +80,25 @@ func (e Envelope) Validate() error {
 	}
 	for label, value := range map[string]string{
 		"deployment ID": e.DeploymentID, "issuer": e.Identity.Issuer,
-		"audience": e.Identity.Audience, "repository ID": e.Identity.RepositoryID,
-		"workflow ref": e.Identity.WorkflowRef, "cluster ID": e.Target.ClusterID,
+		"audience": e.Identity.Audience, "subject": e.Identity.Subject,
+		"repository": e.Identity.Repository, "repository ID": e.Identity.RepositoryID,
+		"repository owner ID": e.Identity.RepositoryOwnerID, "actor ID": e.Identity.ActorID,
+		"workflow ref": e.Identity.WorkflowRef, "workflow SHA": e.Identity.WorkflowSHA,
+		"ref": e.Identity.Ref, "event name": e.Identity.EventName,
+		"runner environment": e.Identity.RunnerEnvironment, "run ID": e.Identity.RunID,
+		"run attempt": e.Identity.RunAttempt, "token ID": e.Identity.TokenID,
+		"cluster ID":       e.Target.ClusterID,
 		"target namespace": e.Target.Namespace, "source revision": e.SourceRevision,
 	} {
 		if strings.TrimSpace(value) == "" {
 			problems = append(problems, label+" is required")
 		}
+	}
+	if !positiveDecimal(e.Identity.RepositoryID) || !positiveDecimal(e.Identity.RepositoryOwnerID) || !positiveDecimal(e.Identity.ActorID) || !positiveDecimal(e.Identity.RunID) || !positiveDecimal(e.Identity.RunAttempt) {
+		problems = append(problems, "GitHub numeric identity fields must be positive decimal integers")
+	}
+	if (e.Identity.JobWorkflowRef == "") != (e.Identity.JobWorkflowSHA == "") {
+		problems = append(problems, "reusable workflow ref and SHA must be present together")
 	}
 	if !validSHA256(e.ManifestSetDigest) {
 		problems = append(problems, "manifest-set digest must be lowercase sha256")
@@ -140,7 +168,7 @@ func (e Envelope) CanonicalBytes() ([]byte, error) {
 	return json.Marshal(c)
 }
 
-func Sign(e Envelope, keyID string, privateKey ed25519.PrivateKey) (SignedEnvelope, error) {
+func sign(e Envelope, keyID string, privateKey ed25519.PrivateKey) (SignedEnvelope, error) {
 	if strings.TrimSpace(keyID) == "" {
 		return SignedEnvelope{}, errors.New("key ID is required")
 	}
@@ -150,6 +178,61 @@ func Sign(e Envelope, keyID string, privateKey ed25519.PrivateKey) (SignedEnvelo
 	payload, err := e.CanonicalBytes()
 	if err != nil {
 		return SignedEnvelope{}, err
+	}
+	return SignedEnvelope{Envelope: e, KeyID: keyID, Signature: hex.EncodeToString(ed25519.Sign(privateKey, payload))}, nil
+}
+
+var (
+	ErrUnverifiedGitHubIdentity = errors.New("GitHub OIDC identity is not verified")
+	ErrSourceRevisionMismatch   = errors.New("source revision does not match GitHub OIDC token")
+	ErrIdentityWindowMismatch   = errors.New("envelope validity exceeds GitHub OIDC token validity")
+	ErrTokenConsumerRequired    = errors.New("GitHub OIDC token consumer is required")
+	ErrTokenReplay              = errors.New("GitHub OIDC token has already been consumed")
+)
+
+// TokenConsumer atomically marks one issuer/JTI pair as consumed through its
+// expiry. Implementations must return false for a replay.
+type TokenConsumer interface {
+	Consume(issuer, jti string, expiresAt time.Time) bool
+}
+
+// IssueGitHub binds an envelope to an opaque, verified GitHub OIDC principal.
+// It consumes the token only after all other envelope checks pass.
+func IssueGitHub(e Envelope, principal githuboidc.Principal, consumed TokenConsumer, keyID string, privateKey ed25519.PrivateKey) (SignedEnvelope, error) {
+	if !principal.Verified() {
+		return SignedEnvelope{}, ErrUnverifiedGitHubIdentity
+	}
+	if consumed == nil {
+		return SignedEnvelope{}, ErrTokenConsumerRequired
+	}
+	claims := principal.Claims()
+	if e.SourceRevision != claims.SourceSHA {
+		return SignedEnvelope{}, ErrSourceRevisionMismatch
+	}
+	if e.NotBefore.Before(claims.NotBefore) || e.ExpiresAt.After(claims.ExpiresAt) {
+		return SignedEnvelope{}, ErrIdentityWindowMismatch
+	}
+	e.Identity = Identity{
+		Issuer: claims.Issuer, Audience: claims.Audience, Subject: claims.Subject,
+		Repository: claims.Repository, RepositoryID: claims.RepositoryID, RepositoryOwnerID: claims.RepositoryOwnerID,
+		ActorID: claims.ActorID, WorkflowRef: claims.WorkflowRef, WorkflowSHA: claims.WorkflowSHA,
+		JobWorkflowRef: claims.JobWorkflowRef, JobWorkflowSHA: claims.JobWorkflowSHA,
+		Ref: claims.Ref, Environment: claims.Environment, EventName: claims.EventName,
+		RunnerEnvironment: claims.RunnerEnvironment, RunID: claims.RunID, RunAttempt: claims.RunAttempt,
+		TokenID: claims.JTI,
+	}
+	payload, err := e.CanonicalBytes()
+	if err != nil {
+		return SignedEnvelope{}, err
+	}
+	if strings.TrimSpace(keyID) == "" {
+		return SignedEnvelope{}, errors.New("key ID is required")
+	}
+	if len(privateKey) != ed25519.PrivateKeySize {
+		return SignedEnvelope{}, errors.New("invalid Ed25519 private key")
+	}
+	if !consumed.Consume(claims.Issuer, claims.JTI, claims.ExpiresAt) {
+		return SignedEnvelope{}, ErrTokenReplay
 	}
 	return SignedEnvelope{Envelope: e, KeyID: keyID, Signature: hex.EncodeToString(ed25519.Sign(privateKey, payload))}, nil
 }
@@ -245,6 +328,11 @@ func validSHA256(value string) bool {
 	}
 	decoded, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
 	return err == nil && len(decoded) == sha256.Size && value == strings.ToLower(value)
+}
+
+func positiveDecimal(value string) bool {
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	return err == nil && parsed > 0
 }
 
 func operationKey(op Operation) string {

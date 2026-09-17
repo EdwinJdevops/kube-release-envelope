@@ -31,7 +31,15 @@ func fixture(t *testing.T) (Envelope, ed25519.PublicKey, ed25519.PrivateKey, tim
 	canonicalManifests := fixtureManifests(t, fixtureImage)
 	e := Envelope{
 		Version: VersionV0Alpha1, DeploymentID: "deploy-01",
-		Identity:       Identity{Issuer: "https://token.actions.githubusercontent.com", Audience: "release-envelope", RepositoryID: "123456", WorkflowRef: "acme/app/.github/workflows/deploy.yml@refs/heads/main"},
+		Identity: Identity{
+			Issuer: "https://token.actions.githubusercontent.com", Audience: "release-envelope",
+			Subject: "repo:acme@100/app@123456:environment:production", Repository: "acme/app",
+			RepositoryID: "123456", RepositoryOwnerID: "100", ActorID: "200",
+			WorkflowRef: "acme/app/.github/workflows/deploy.yml@refs/heads/main",
+			WorkflowSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Ref: "refs/heads/main",
+			Environment: "production", EventName: "workflow_dispatch", RunnerEnvironment: "github-hosted",
+			RunID: "300", RunAttempt: "1", TokenID: "token-01",
+		},
 		Target:         Target{ClusterID: "cluster-prod-1", Namespace: "payments"},
 		SourceRevision: "0123456789abcdef", ManifestSetDigest: ManifestSetDigest(canonicalManifests),
 		Artifacts: []string{fixtureImage},
@@ -58,7 +66,7 @@ func TestSignVerifyAndCanonicalOperationOrder(t *testing.T) {
 	if string(a) != string(b) {
 		t.Fatal("operation order changed canonical payload")
 	}
-	signed, err := Sign(e, "signing-key-1", priv)
+	signed, err := sign(e, "signing-key-1", priv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +100,7 @@ func TestCanonicalArtifactOrderAndValidation(t *testing.T) {
 
 func TestVerifyRejectsTamperingAndExpiry(t *testing.T) {
 	e, pub, priv, now := fixture(t)
-	signed, err := Sign(e, "signing-key-1", priv)
+	signed, err := sign(e, "signing-key-1", priv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,6 +155,16 @@ func TestValidationRejectsDuplicateAndForbiddenVerb(t *testing.T) {
 	e, _, _, _ = fixture(t)
 	e.Operations[0].Verb = "impersonate"
 	if err := e.Validate(); err == nil || !strings.Contains(err.Error(), "unsupported verb") {
+		t.Fatalf("got %v", err)
+	}
+	e, _, _, _ = fixture(t)
+	e.Identity.RunAttempt = "0"
+	if err := e.Validate(); err == nil || !strings.Contains(err.Error(), "positive decimal") {
+		t.Fatalf("got %v", err)
+	}
+	e, _, _, _ = fixture(t)
+	e.Identity.JobWorkflowRef = "acme/platform/.github/workflows/deploy.yml@refs/heads/main"
+	if err := e.Validate(); err == nil || !strings.Contains(err.Error(), "present together") {
 		t.Fatalf("got %v", err)
 	}
 }

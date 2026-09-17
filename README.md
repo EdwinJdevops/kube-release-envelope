@@ -14,6 +14,12 @@ the built-in workload kinds listed in ADR 0003. Unknown kinds fail closed. This
 is pre-admission intent enforcement; it does not yet prove which image an
 admission webhook stored or which image a node ran.
 
+GitHub Actions issuance now requires an RS256-verified OIDC principal matched to
+exact repository/owner IDs, workflow commit, source commit/ref, subject,
+environment, event, runner type, and run identity. The pure core deliberately
+does not fetch GitHub JWKS keys or provide durable replay storage yet; those are
+the next adapter boundaries, not completed production capabilities.
+
 ## Problem boundary
 
 Kubernetes RBAC authorizes API requests. It does not by itself bind a reviewed
@@ -36,6 +42,7 @@ and a general policy language are explicitly out of scope.
 ## Repository map
 
 - `internal/envelope`: canonicalization, validation, signing, verification.
+- `internal/githuboidc`: pure JWT signature and exact-claim verification.
 - `docs/spec`: protocol and invariant definitions.
 - `docs/adr`: architectural decisions and rejected alternatives.
 - `docs/research`: evidence, uncertainties, and validation gates.

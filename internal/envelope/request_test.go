@@ -9,7 +9,7 @@ import (
 func TestVerifyRequest(t *testing.T) {
 	e, pub, priv, now := fixture(t)
 	canonicalManifests := fixtureManifests(t, fixtureImage)
-	signed, err := Sign(e, "key-1", priv)
+	signed, err := sign(e, "key-1", priv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +40,7 @@ func TestVerifyRequest(t *testing.T) {
 		nonCanonical := append([]byte(" "), canonicalManifests...)
 		modified := signed
 		modified.Envelope.ManifestSetDigest = ManifestSetDigest(nonCanonical)
-		modified, err = Sign(modified.Envelope, "key-1", priv)
+		modified, err = sign(modified.Envelope, "key-1", priv)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,7 +53,7 @@ func TestVerifyRequest(t *testing.T) {
 	t.Run("rejects artifact binding mismatch", func(t *testing.T) {
 		modifiedEnvelope := e
 		modifiedEnvelope.Artifacts = []string{"registry.example.com/payments/api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}
-		modified, err := Sign(modifiedEnvelope, "key-1", priv)
+		modified, err := sign(modifiedEnvelope, "key-1", priv)
 		if err != nil {
 			t.Fatal(err)
 		}
