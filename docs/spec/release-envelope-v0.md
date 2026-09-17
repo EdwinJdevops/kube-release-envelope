@@ -41,7 +41,8 @@ canonicalized lexicographically. Duplicate artifact entries are invalid.
    bounded rotation refresh.
 3. Before issuance, verify the GitHub JWT signature using the resolved key,
    validate its time window, and match exact identity/execution claims.
-4. Atomically consume the GitHub issuer/token-ID pair to reject replay.
+4. Atomically and durably consume the GitHub issuer/token-ID pair to reject
+   replay. Storage uncertainty fails issuance closed.
 5. Replace all envelope identity fields with verified claims and constrain the
    envelope source revision and validity window to those claims.
 6. Validate protocol and all required semantic fields.
@@ -66,6 +67,7 @@ and rotation belong to the verifier's trust configuration.
 - Image-bearing custom resources and built-in workload kinds not listed in ADR
   0003.
 - Safe binding between an envelope and ephemeral ServiceAccount credentials.
-- Durable atomic replay-consumer storage.
+- Linearizable multi-replica replay consumption; the current store is limited
+  to a local filesystem on one node.
 - Mutation capture when webhooks fail or audit delivery is delayed.
 - Runtime health semantics and observation completeness.
